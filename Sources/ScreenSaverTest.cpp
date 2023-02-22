@@ -17,7 +17,9 @@
 // include the special screen saver header
 #include <scrnsave.h>
 
-#include "resource.h"
+#include <chrono>
+
+#include "ScreenSaverTest.h"
 
 Gdiplus::Bitmap* bp = nullptr;
 
@@ -70,18 +72,20 @@ void WriteData()
 {
 	int width = bp->GetWidth();
 	int height = bp->GetHeight();
-
+	INT64 tm = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
+	float gTime = tm / 1000.0f;
 	// Flip the image top to bottom just for fun.
 	{
 		Gdiplus::BitmapData bmdata;
 		Gdiplus::Rect rect(0, 0, width, height);
 		bp->LockBits(&rect, Gdiplus::ImageLockModeRead | Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bmdata);
-		for (unsigned int y = 0; y < height; ++y)
+		for (int y = 0; y < height; ++y)
 		{
 			unsigned int* line = (unsigned int*)((char*)bmdata.Scan0 + (size_t)bmdata.Stride * y);
-			for (unsigned int x = 0; x < width; x++)
+			for (int x = 0; x < width; x++)
 			{
-				line[x] = x == width-1 || y == height-1 ? 0x00ff00ff : 0x00ffff00;
+				float distSQ = (x - 32) * (x - 32) + (y - 32) * (y - 32);
+				line[x] = distSQ < (sinf(gTime*2)+1)*250 ? 0x00ff00ff : 0x00ffff00;
 			}
 		}
 		bp->UnlockBits(&bmdata);
