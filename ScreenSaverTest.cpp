@@ -1,14 +1,3 @@
-// *********************************************************************
-// *                                                                   *
-// *                   EXAMPLE SCREEN SAVER APP                        *
-// *                                                                   *
-// * ROTATE THROUGH THE FIRST 25 IMAGES IN THE USER'S PICTURES FOLDER. *
-// *                                                                   *
-// *            SAVE THE EXECUTABLE WITH .SCR EXTENSION.               *
-// *             RUN THE EXECUTABLE WITH /s PARAMETER.                 *
-// *                                                                   *
-// *********************************************************************
-
 #ifndef UNICODE
 #define UNICODE
 #endif
@@ -24,26 +13,13 @@
 #endif
 
 #include <windows.h>
-#include <objidl.h>
 #include <gdiplus.h>
-#include <shlobj.h>
-#include <strsafe.h>
-
 // include the special screen saver header
 #include <scrnsave.h>
 
-using namespace Gdiplus;
+#include "resource.h"
 
-#define MAX_IMAGES 25
-WCHAR images[MAX_IMAGES + 1][MAX_PATH + 1];
-int imageIndex;
-
-#define IM_COVER   1
-#define IM_CONTAIN 2
-#define IM_STRETCH 3
-
-int imageMode = IM_COVER;
-
+Gdiplus::Bitmap* bp = nullptr;
 
 BOOL WINAPI RegisterDialogClasses(HANDLE hInst)
 {
@@ -52,100 +28,99 @@ BOOL WINAPI RegisterDialogClasses(HANDLE hInst)
 
 BOOL WINAPI ScreenSaverConfigureDialog(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	
+	static HWND hSpeed;   // handle to speed scroll bar 
+	static HWND hOK;      // handle to OK push button  
+	HRESULT result;
+
+	switch (message)
+	{
+	case WM_INITDIALOG:
+
+		// Retrieve the application name from the .rc file.  
+		result = LoadString(hMainInstance, idsAppName, szAppName, APPNAMEBUFFERLEN);
+
+		// Retrieve the .ini (or registry) file name. 
+		result = LoadString(hMainInstance, idsIniFile, szIniFile, MAXFILELEN);
+
+		// Retrieve a handle to the OK push button control.  
+		hOK = GetDlgItem(hDlg, ID_OK);
+
+		return TRUE;
+
+	case WM_COMMAND:
+		switch (LOWORD(wParam))
+		{
+		case ID_OK:
+
+		case ID_CANCEL:
+			EndDialog(hDlg, LOWORD(wParam) == ID_OK);
+
+			return TRUE;
+		default:
+			return false;
+		}
+	case WM_CLOSE:
+		EndDialog(hDlg, 0);
+		return true;
+	}
 	return FALSE;
+}
+
+void WriteData()
+{
+	int width = bp->GetWidth();
+	int height = bp->GetHeight();
+
+	// Flip the image top to bottom just for fun.
+	{
+		Gdiplus::BitmapData bmdata;
+		Gdiplus::Rect rect(0, 0, width, height);
+		bp->LockBits(&rect, Gdiplus::ImageLockModeRead | Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bmdata);
+		for (unsigned int y = 0; y < height; ++y)
+		{
+			unsigned int* line = (unsigned int*)((char*)bmdata.Scan0 + (size_t)bmdata.Stride * y);
+			for (unsigned int x = 0; x < width; x++)
+			{
+				line[x] = x == width-1 || y == height-1 ? 0x00ff00ff : 0x00ffff00;
+			}
+		}
+		bp->UnlockBits(&bmdata);
+	}
 }
 
 void DrawScreen(HDC hdc, HWND hwnd)
 {
 	RECT rcClient;
 	GetClientRect(hwnd, &rcClient);
-	Graphics graphics(hdc);
-	if (images[imageIndex][0])
-	{
-		// Create an Image (Bitmap) object
-		Image bitmap(images[imageIndex]);
-		// Draw the original source image
-		Rect gdiRect;
-		if (IM_COVER == imageMode)
-		{
-			INT windowWidth = rcClient.right - rcClient.left;
-			INT windowHeight = rcClient.bottom - rcClient.top;
-			float percentWidth = windowWidth / (float)bitmap.GetWidth();
-			float percentHeight = windowHeight / (float)bitmap.GetHeight();
-			float percent = percentHeight > percentWidth ? percentHeight : percentWidth;
-			gdiRect.Width = bitmap.GetWidth() * percent;
-			gdiRect.Height = bitmap.GetHeight() * percent;
-			gdiRect.X = (windowWidth - (INT)gdiRect.Width) / 2;
-			gdiRect.Y = (windowHeight - (INT)gdiRect.Height) / 2;
-		}
-		else if (IM_CONTAIN == imageMode)
-		{
-			INT windowWidth = rcClient.right - rcClient.left;
-			INT windowHeight = rcClient.bottom - rcClient.top;
-			float percentWidth = windowWidth / (float)bitmap.GetWidth();
-			float percentHeight = windowHeight / (float)bitmap.GetHeight();
-			float percent = windowWidth > windowHeight ? percentHeight : percentWidth;
-			gdiRect.Width = bitmap.GetWidth() * percent;
-			gdiRect.Height = bitmap.GetHeight() * percent;
-			gdiRect.X = (windowWidth - (INT)gdiRect.Width) / 2;
-			gdiRect.Y = (windowHeight - (INT)gdiRect.Height) / 2;
+	Gdiplus::Graphics graphics(hdc);
 
-			FillRect(hdc, &rcClient, (HBRUSH)GetStockObject(BLACK_BRUSH));
-		}
-		else if (IM_STRETCH == imageMode)
-		{
-			gdiRect.Width = rcClient.right - rcClient.left;
-			gdiRect.Height = rcClient.bottom - rcClient.top;
-			gdiRect.X = gdiRect.Y = 0;
-		}
-		graphics.DrawImage(&bitmap, gdiRect);
-	}
-	else
-	{
-		static float offset = 0.0;
-		float width = (float)rcClient.right - rcClient.left;
-		if (offset > width)
-			offset = 0.0;
-		FillRect(hdc, &rcClient, (HBRUSH)GetStockObject(BLACK_BRUSH));
-		float fontSize = (rcClient.bottom - rcClient.top) / 11.0; // 11 lines
+	WriteData();
 
-		FontFamily fontFamily(L"Times New Roman");
-		Font       font(&fontFamily, fontSize, FontStyleBold, UnitPixel);
-		PointF     pointF(offset, 0.0f);
-		SolidBrush solidBrush(Color(255, 192, 32, 32));
-
-		offset += width / 25;
-
-		// draw text telling user there are no pics in the pics folder
-		graphics.DrawString(L"Add pictures", -1, &font, pointF, &solidBrush);
-		pointF.Y += fontSize;
-		graphics.DrawString(L"to the folder", -1, &font, pointF, &solidBrush);
-		WCHAR myPics[MAX_PATH + 1];
-		if (SUCCEEDED(SHGetFolderPath(NULL, CSIDL_MYPICTURES, NULL, SHGFP_TYPE_CURRENT, myPics)))
-		{
-			SolidBrush solidBrush(Color(255, 64, 64, 225));
-			pointF.Y += fontSize;
-			graphics.DrawString(myPics, -1, &font, pointF, &solidBrush);
-		}
-	}
+	INT windowWidth = rcClient.right - rcClient.left;
+	INT windowHeight = rcClient.bottom - rcClient.top;
+	float percentWidth = windowWidth / (float)(bp->GetWidth()-1);
+	float percentHeight = windowHeight / (float)(bp->GetHeight()-1);
+	float percent = windowWidth > windowHeight ? percentHeight : percentWidth;
+	Gdiplus::Rect gdiRect;
+	gdiRect.Width = (INT)(bp->GetWidth() * percent);
+	gdiRect.Height = (INT)(bp->GetHeight() * percent);
+	gdiRect.X = (windowWidth - (INT)gdiRect.Width) / 2;
+	gdiRect.Y = (windowHeight - (INT)gdiRect.Height) / 2;
+	//FillRect(hdc, &rcClient, (HBRUSH)GetStockObject(BLACK_BRUSH));
+	graphics.SetInterpolationMode(Gdiplus::InterpolationModeNearestNeighbor);
+	graphics.DrawImage(reinterpret_cast<Gdiplus::Image*>(bp), gdiRect);
 }
 
-GdiplusStartupInput gdiplusStartupInput;
+Gdiplus::GdiplusStartupInput gdiplusStartupInput;
 ULONG_PTR gdiplusToken;
 
 // handle screen saver window messages; most are already handled by "DefScreenSaverProc"
 LRESULT WINAPI ScreenSaverProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-	int x, y;
-	static int X, Y, called = 0;
 	switch (msg)
 	{
 	case WM_TIMER:
 	{
-		imageIndex++;
-		if (!images[imageIndex][0])
-			imageIndex = 0;
 		RECT rect;
 		GetClientRect(hwnd, &rect);
 		InvalidateRect(hwnd, &rect, FALSE);
@@ -163,44 +138,24 @@ LRESULT WINAPI ScreenSaverProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 
 	case WM_CREATE:
 	{
-		// get images to display from the user's pictures folder
-		ZeroMemory(images, sizeof(images));
-		imageIndex = 0;
-		WCHAR myPics[MAX_PATH + 1];
-		if (FAILED(SHGetFolderPath(NULL, CSIDL_MYPICTURES, NULL, SHGFP_TYPE_CURRENT, myPics)))
-			return 0;
-		StringCchCat(myPics, MAX_PATH, L"\\Saved Pictures\\*");
-		WIN32_FIND_DATA fd;
-		HANDLE hFind;
-		if ((hFind = FindFirstFile(myPics, &fd)) != INVALID_HANDLE_VALUE)
-		{
-			int i = 0;
-			do
-			{
-				if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-				{
-					// TODO: search this directory for more images
-				}
-				else if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_HIDDEN || fd.dwFileAttributes & FILE_ATTRIBUTE_SYSTEM))
-				{
-					if (FAILED(SHGetFolderPath(NULL, CSIDL_MYPICTURES, NULL, SHGFP_TYPE_CURRENT, images[i])))
-						return 0;
-					StringCchCat(images[i], MAX_PATH, L"\\Saved Pictures\\");
-					StringCchCat(images[i], MAX_PATH, fd.cFileName);
-					i++;
-				}
-			} while (i < MAX_IMAGES && FindNextFile(hFind, &fd) != 0);
-		}
+		// Retrieve the application name from the .rc file. 
+		LoadString(hMainInstance, idsAppName, szAppName, APPNAMEBUFFERLEN);
+
+		// Retrieve the .ini (or registry) file name. 
+		LoadString(hMainInstance, idsIniFile, szIniFile, MAXFILELEN);
+
 		GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-		SetTimer(hwnd, 1, 2000, NULL); // 2000ms
+		bp = new Gdiplus::Bitmap(64, 64, PixelFormat32bppRGB);
+
+		SetTimer(hwnd, 1, 200, NULL); // 2000ms
 	}
 	return 0;
 
 	case WM_DESTROY:
 		KillTimer(hwnd, 1);
 
-		GdiplusShutdown(gdiplusToken);
+		Gdiplus::GdiplusShutdown(gdiplusToken);
 
 		return 0;
 	}
