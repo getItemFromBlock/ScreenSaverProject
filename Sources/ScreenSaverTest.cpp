@@ -84,8 +84,9 @@ void WriteData()
 			unsigned int* line = (unsigned int*)((char*)bmdata.Scan0 + (size_t)bmdata.Stride * y);
 			for (int x = 0; x < width; x++)
 			{
-				float distSQ = (x - 32) * (x - 32) + (y - 32) * (y - 32);
-				line[x] = distSQ < (sinf(gTime*2)+1)*250 ? 0x00ff00ff : 0x00ffff00;
+				float distSQ = (x - 128) * (x - 128) + (y - 128) * (y - 128);
+				float a = (sinf(gTime * 2) + 1) * 48;
+				line[x] = distSQ < a*a ? 0x00ff00ff : 0x00ffff00;
 			}
 		}
 		bp->UnlockBits(&bmdata);
@@ -150,9 +151,9 @@ LRESULT WINAPI ScreenSaverProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 
 		GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-		bp = new Gdiplus::Bitmap(64, 64, PixelFormat32bppRGB);
+		bp = new Gdiplus::Bitmap(256, 256, PixelFormat32bppRGB);
 
-		SetTimer(hwnd, 1, 50, NULL); // 2000ms
+		SetTimer(hwnd, 1, 20, NULL); // 2000ms
 	}
 	return 0;
 
