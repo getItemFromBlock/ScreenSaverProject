@@ -152,7 +152,7 @@ LRESULT WINAPI ScreenSaverProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 
 		bp = new Gdiplus::Bitmap(64, 64, PixelFormat32bppRGB);
 
-		SetTimer(hwnd, 1, 200, NULL); // 2000ms
+		SetTimer(hwnd, 1, 50, NULL); // 2000ms
 	}
 	return 0;
 
