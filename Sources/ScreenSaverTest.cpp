@@ -17,11 +17,14 @@
 // include the special screen saver header
 #include <scrnsave.h>
 
-#include <chrono>
+#include <algorithm>
 
 #include "ScreenSaverTest.h"
 
+#include "ScreenRenderer.hpp"
+
 Gdiplus::Bitmap* bp = nullptr;
+ScreenRenderer renderer = ScreenRenderer(Maths::IVec2(256, 256));
 
 BOOL WINAPI RegisterDialogClasses(HANDLE hInst)
 {
@@ -70,24 +73,17 @@ BOOL WINAPI ScreenSaverConfigureDialog(HWND hDlg, UINT message, WPARAM wParam, L
 
 void WriteData()
 {
-	int width = bp->GetWidth();
-	int height = bp->GetHeight();
-	INT64 tm = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now().time_since_epoch()).count();
-	float gTime = tm / 1000.0f;
-	// Flip the image top to bottom just for fun.
+	unsigned int width = bp->GetWidth();
+	unsigned int height = bp->GetHeight();
 	{
 		Gdiplus::BitmapData bmdata;
 		Gdiplus::Rect rect(0, 0, width, height);
-		bp->LockBits(&rect, Gdiplus::ImageLockModeRead | Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bmdata);
-		for (int y = 0; y < height; ++y)
+		bp->LockBits(&rect, Gdiplus::ImageLockModeWrite, PixelFormat32bppRGB, &bmdata);
+		for (unsigned int y = 0; y < height; ++y)
 		{
 			unsigned int* line = (unsigned int*)((char*)bmdata.Scan0 + (size_t)bmdata.Stride * y);
-			for (int x = 0; x < width; x++)
-			{
-				float distSQ = (x - 128) * (x - 128) + (y - 128) * (y - 128);
-				float a = (sinf(gTime * 2) + 1) * 48;
-				line[x] = distSQ < a*a ? 0x00ff00ff : 0x00ffff00;
-			}
+			auto source = renderer.GetLineData(y);
+			std::copy(source, source + width, line);
 		}
 		bp->UnlockBits(&bmdata);
 	}
@@ -99,6 +95,7 @@ void DrawScreen(HDC hdc, HWND hwnd)
 	GetClientRect(hwnd, &rcClient);
 	Gdiplus::Graphics graphics(hdc);
 
+	renderer.DrawScreen();
 	WriteData();
 
 	INT windowWidth = rcClient.right - rcClient.left;
