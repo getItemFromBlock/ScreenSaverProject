@@ -165,7 +165,6 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="ScreenSaverTest.ico" />
-    <Image Include="small.ico" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Headers\Maths\Maths.inl" />

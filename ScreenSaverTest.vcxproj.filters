@@ -54,9 +54,6 @@
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
-    <Image Include="small.ico">
-      <Filter>Fichiers de ressources</Filter>
-    </Image>
     <Image Include="ScreenSaverTest.ico">
       <Filter>Fichiers de ressources</Filter>
     </Image>
