@@ -23,8 +23,9 @@
 
 #include "ScreenRenderer.hpp"
 
+Maths::IVec2 bitmapRes(256, 256);
 Gdiplus::Bitmap* bp = nullptr;
-ScreenRenderer renderer = ScreenRenderer(Maths::IVec2(256, 256));
+ScreenRenderer renderer = ScreenRenderer(bitmapRes);
 
 BOOL WINAPI RegisterDialogClasses(HANDLE hInst)
 {
@@ -148,7 +149,7 @@ LRESULT WINAPI ScreenSaverProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 
 		GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
 
-		bp = new Gdiplus::Bitmap(256, 256, PixelFormat32bppRGB);
+		bp = new Gdiplus::Bitmap(bitmapRes.x, bitmapRes.y, PixelFormat32bppRGB);
 
 		SetTimer(hwnd, 1, 20, NULL); // 2000ms
 	}
